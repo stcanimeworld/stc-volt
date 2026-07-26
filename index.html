@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Bird Mini Game</title>
+    
+    <!-- AdsGram Script যুক্ত করা হলো -->
+    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #2c3e50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            position: relative;
+        }
+        canvas {
+            background-color: #70c5ce;
+            border: 2px solid #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            display: block;
+        }
+        #restart-btn {
+            display: none;
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        #restart-btn:active {
+            background-color: #c0392b;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- গেম ক্যানভাস -->
+    <canvas id="gameCanvas" width="320" height="480"></canvas>
+    <!-- রিস্টার্ট বাটন -->
+    <button id="restart-btn">Play Again</button>
+</div>
+
+<script>
+    // AdsGram ইনিশিয়ালাইজেশন আপনার ব্লক আইডি দিয়ে
+    const AdController = window.Adsgram.init({ blockId: "39745" });
+
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const restartBtn = document.getElementById("restart-btn");
+
+    let frames = 0;
+    let score = 0;
+    let gameOver = false;
+
+    // পাখির অবজেক্ট
+    const bird = {
+        x: 50,
+        y: 150,
+        width: 20,
+        height: 20,
+        gravity: 0.25,
+        jump: 4.5,
+        velocity: 0,
+        draw: function() {
+            ctx.fillStyle = "#f1c40f"; // পাখির রঙ
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        },
+        update: function() {
+            this.velocity += this.gravity;
+            this.y += this.velocity;
+
+            // নিচে পড়ে গেলে বা উপরে উঠে গেলে গেম ওভার
+            if (this.y + this.height >= canvas.height || this.y <= 0) {
+                gameOver = true;
+            }
+        },
+        flap: function() {
+            this.velocity = -this.jump;
+        }
+    };
+
+    // পাইপ বা পিলারের অবজেক্ট
+    const pipes = {
+        items: [],
+        width: 40,
+        gap: 120, // দুটি পাইপের মাঝের ফাঁকা জায়গা
+        dx: 2,    // পাইপ আসার স্পিড
+        draw: function() {
+            for (let i = 0; i < this.items.length; i++) {
+                let p = this.items[i];
+                ctx.fillStyle = "#2ecc71"; // পাইপের রঙ
+                // উপরের পাইপ
+                ctx.fillRect(p.x, 0, this.width, p.top);
+                // নিচের পাইপ
+                ctx.fillRect(p.x, canvas.height - p.bottom, this.width, p.bottom);
+            }
+        },
+        update: function() {
+            // নতুন পাইপ তৈরি
+            if (frames % 100 === 0) {
+                let topPipeHeight = Math.max(30, Math.random() * (canvas.height - this.gap - 60));
+                let bottomPipeHeight = canvas.height - topPipeHeight - this.gap;
+                this.items.push({ x: canvas.width, top: topPipeHeight, bottom: bottomPipeHeight, passed: false });
+            }
+
+            for (let i = 0; i < this.items.length; i++) {
+                let p = this.items[i];
+                p.x -= this.dx;
+
+                // কলিশন (পাখির সাথে পাইপের ধাক্কা) চেক
+                if (bird.x + bird.width > p.x && bird.x < p.x + this.width &&
+                    (bird.y < p.top || bird.y + bird.height > canvas.height - p.bottom)) {
+                    gameOver = true;
+                }
+
+                // স্কোর আপডেট
+                if (p.x + this.width < bird.x && !p.passed) {
+                    score++;
+                    p.passed = true;
+                }
+            }
+            // স্ক্রিনের বাইরে চলে যাওয়া পাইপ ডিলিট করা
+            this.items = this.items.filter(p => p.x + this.width > 0);
+        }
+    };
+
+    // স্ক্রিনে ক্লিক বা ট্যাপ করলে পাখি উড়বে
+    canvas.addEventListener("mousedown", () => {
+        if (!gameOver) bird.flap();
+    });
+    canvas.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        if (!gameOver) bird.flap();
+    });
+
+    // গেম রিসেট এবং অ্যাড শো করার ফাংশন
+    function resetGameWithAd() {
+        // বাটনে ক্লিক করার সাথে সাথে অ্যাড শো করবে
+        AdController.show().then((result) => {
+            // অ্যাড সফলভাবে দেখা শেষ হলে গেম রিস্টার্ট হবে
+            startActualGame();
+        }).catch((result) => {
+            // কোনো কারণে অ্যাড লোড না হলে বা ইউজার কেটে দিলেও গেম রিস্টার্ট হবে
+            startActualGame();
+        });
+    }
+
+    // মূল গেম শুরু করার লজিক
+    function startActualGame() {
+        bird.y = 150;
+        bird.velocity = 0;
+        pipes.items = [];
+        score = 0;
+        frames = 0;
+        gameOver = false;
+        restartBtn.style.display = "none";
+        loop();
+    }
+
+    // রিস্টার্ট বাটনে ক্লিক ইভেন্ট যুক্ত করা হলো
+    restartBtn.addEventListener("click", resetGameWithAd);
+
+    // মেইন গেম লুপ
+    function loop() {
+        if (gameOver) {
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "white";
+            ctx.font = "24px Arial";
+            ctx.fillText("Game Over!", 90, canvas.height / 2 - 20);
+            ctx.fillText("Score: " + score, 110, canvas.height / 2 + 10);
+            restartBtn.style.display = "block";
+            return;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        bird.update();
+        pipes.update();
+        
+        bird.draw();
+        pipes.draw();
+
+        // স্কোর দেখানো
+        ctx.fillStyle = "#fff";
+        ctx.font = "20px Arial";
+        ctx.fillText("Score: " + score, 10, 30);
+
+        frames++;
+        requestAnimationFrame(loop);
+    }
+
+    // গেম শুরু
+    loop();
+</script>
+
+</body>
+</html>
